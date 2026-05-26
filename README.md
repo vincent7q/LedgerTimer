@@ -50,5 +50,5 @@ A lightweight, open-source, privacy-first desktop time tracker built with **Pyth
 
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/YOUR_USERNAME/LedgerTimer.git](https://github.com/YOUR_USERNAME/LedgerTimer.git)
+   git clone [https://github.com/vincent7q/LedgerTimer.git](https://github.com/YOUR_USERNAME/LedgerTimer.git)
    cd LedgerTimer
