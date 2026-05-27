@@ -101,3 +101,96 @@ A lightweight, open-source, privacy-first desktop time tracker built with **Pyth
    dist/LedgerTimer.exe
    ```
    `ledger.db` will be created automatically in the same folder as the `.exe` on first run.
+
+---
+
+## 🐧 Building a Linux Executable
+
+PyInstaller cannot cross-compile — the Linux binary must be built **on Linux**. The easiest way on Windows is via **WSL2**.
+
+### Using WSL2
+
+1. Install WSL2 and a distro (e.g. Ubuntu) if not already set up:
+   ```powershell
+   wsl --install
+   ```
+
+2. Open a WSL terminal, navigate to the project, and install dependencies:
+   ```bash
+   cd /mnt/c/Users/<you>/source/LedgerTimer
+   sudo apt update && sudo apt install python3 python3-pip python3-tk -y
+   pip3 install -r requirements.txt
+   pip3 install pyinstaller
+   ```
+
+3. Build using the same spec file:
+   ```bash
+   python3 -m PyInstaller LedgerTimer.spec --noconfirm
+   ```
+
+   > The `icon=` setting in the spec is silently ignored on Linux — this is expected.
+
+4. The finished binary is at:
+   ```
+   dist/LedgerTimer
+   ```
+   Make it executable if needed:
+   ```bash
+   chmod +x dist/LedgerTimer
+   ./dist/LedgerTimer
+   ```
+
+### Using a Linux VM or CI
+If you prefer a VM or CI pipeline (e.g. GitHub Actions), the same steps apply — install Python + tkinter, install dependencies, then run `pyinstaller LedgerTimer.spec --noconfirm`.
+
+---
+
+## 🍎 Building a macOS App
+
+Like Linux, macOS builds must be run **on a Mac** (no cross-compilation).
+
+### Steps
+
+1. Install Python 3.10+ from [python.org](https://www.python.org/downloads/) (recommended over Homebrew — it includes Tkinter).
+
+2. Install dependencies:
+   ```bash
+   pip3 install -r requirements.txt
+   pip3 install pyinstaller
+   ```
+
+3. (Optional) Generate a macOS `.icns` icon. The `.ico` file used for Windows is not supported on macOS:
+   ```bash
+   # Convert app_icon.ico to app_icon.icns using sips + iconutil (macOS built-in tools)
+   mkdir app_icon.iconset
+   sips -z 16 16   ledgertimer/app_icon.png --out app_icon.iconset/icon_16x16.png
+   sips -z 32 32   ledgertimer/app_icon.png --out app_icon.iconset/icon_16x16@2x.png
+   sips -z 32 32   ledgertimer/app_icon.png --out app_icon.iconset/icon_32x32.png
+   sips -z 64 64   ledgertimer/app_icon.png --out app_icon.iconset/icon_32x32@2x.png
+   sips -z 128 128 ledgertimer/app_icon.png --out app_icon.iconset/icon_128x128.png
+   sips -z 256 256 ledgertimer/app_icon.png --out app_icon.iconset/icon_128x128@2x.png
+   sips -z 256 256 ledgertimer/app_icon.png --out app_icon.iconset/icon_256x256.png
+   sips -z 512 512 ledgertimer/app_icon.png --out app_icon.iconset/icon_256x256@2x.png
+   iconutil -c icns app_icon.iconset -o ledgertimer/app_icon.icns
+   rm -rf app_icon.iconset
+   ```
+   Then update the `icon=` line in `LedgerTimer.spec` to `'ledgertimer/app_icon.icns'` before building.
+
+4. Build using the spec file:
+   ```bash
+   python3 -m PyInstaller LedgerTimer.spec --noconfirm
+   ```
+
+5. The finished app bundle is at:
+   ```
+   dist/LedgerTimer.app
+   ```
+   To run it:
+   ```bash
+   open dist/LedgerTimer.app
+   ```
+
+> **Gatekeeper warning**: Unsigned apps downloaded from the internet will be blocked by macOS. To bypass for local use, right-click → Open, or run:
+> ```bash
+> xattr -d com.apple.quarantine dist/LedgerTimer.app
+> ```
