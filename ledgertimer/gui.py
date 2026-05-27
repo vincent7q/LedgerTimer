@@ -7,6 +7,8 @@ Layout:
   Bottom panel — Date range pickers + Export to CSV button
 """
 
+import os
+import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from datetime import datetime, date, timedelta
@@ -168,6 +170,12 @@ class App(ctk.CTk):
         self.title("LedgerTimer")
         self.geometry("900x640")
         self.minsize(800, 500)
+        _base = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
+        _ico = os.path.join(_base, "ledgertimer", "app_icon.ico")
+        if not os.path.exists(_ico):
+            _ico = os.path.join(os.path.dirname(__file__), "app_icon.ico")
+        if os.path.exists(_ico):
+            self.iconbitmap(_ico)
 
         db.init_db()
 

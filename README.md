@@ -73,19 +73,30 @@ A lightweight, open-source, privacy-first desktop time tracker built with **Pyth
    pip install pyinstaller
    ```
 
-2. Build the `.exe`:
+2. (Optional) Regenerate the app icon if needed:
    ```bash
-   pyinstaller --onefile --windowed --name LedgerTimer --collect-data customtkinter run.py
+   python ledgertimer/ico_generator.py
+   ```
+   This creates `ledgertimer/app_icon.ico`. The file is already committed, so skip this step unless you want to update the icon.
+
+3. Build using the spec file (recommended):
+   ```bash
+   python -m PyInstaller LedgerTimer.spec --noconfirm
    ```
 
-   | Flag | Purpose |
-   |---|---|
-   | `--onefile` | Packages everything into a single `.exe` |
-   | `--windowed` | Suppresses the console window on launch |
-   | `--name LedgerTimer` | Sets the output filename |
-   | `--collect-data customtkinter` | Bundles CustomTkinter themes and assets |
+   The spec file handles everything automatically:
 
-3. The finished executable is at:
+   | Setting | Value |
+   |---|---|
+   | Single-file output | `--onefile` |
+   | No console window | `--windowed` |
+   | CustomTkinter assets | bundled via `collect_data_files` |
+   | App icon (window + taskbar) | `ledgertimer/app_icon.ico` |
+   | Exe icon (file explorer) | `ledgertimer/app_icon.ico` |
+
+   > **Do not** use a raw `pyinstaller --onefile ...` command — it will regenerate the spec and lose the icon settings.
+
+4. The finished executable is at:
    ```
    dist/LedgerTimer.exe
    ```
