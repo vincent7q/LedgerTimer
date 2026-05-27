@@ -52,3 +52,14 @@ A lightweight, open-source, privacy-first desktop time tracker built with **Pyth
    ```bash
    git clone https://github.com/vincent7q/LedgerTimer.git
    cd LedgerTimer
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Run the program:
+   ```bash
+   python -m ledgertimer
+   ```
