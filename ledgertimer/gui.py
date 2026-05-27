@@ -191,28 +191,30 @@ class App(ctk.CTk):
     def _build_top_panel(self):
         frame = ctk.CTkFrame(self)
         frame.grid(row=0, column=0, padx=12, pady=(12, 4), sticky="ew")
+        frame.grid_columnconfigure(0, weight=0)
         frame.grid_columnconfigure(1, weight=1)
 
-        # Row 0: Project
-        ctk.CTkLabel(frame, text="Project:").grid(row=0, column=0, padx=(10, 6), pady=(10, 4), sticky="w")
-        self._proj_var = tk.StringVar()
-        self._proj_combo = ctk.CTkComboBox(frame, variable=self._proj_var, values=[], width=220)
-        self._proj_combo.grid(row=0, column=1, padx=(0, 10), pady=(10, 4), sticky="w")
+        # Row 0: Labels
+        ctk.CTkLabel(frame, text="Project:").grid(row=0, column=0, padx=(10, 16), pady=(10, 2), sticky="w")
+        ctk.CTkLabel(frame, text="Description:").grid(row=0, column=1, padx=(0, 0), pady=(10, 2), sticky="w")
 
-        # Row 1: Description
-        ctk.CTkLabel(frame, text="Description:").grid(row=1, column=0, padx=(10, 6), pady=4, sticky="w")
+        # Row 1: Inputs
+        self._proj_var = tk.StringVar()
+        self._proj_combo = ctk.CTkComboBox(frame, variable=self._proj_var, values=[], width=154)
+        self._proj_combo.grid(row=1, column=0, padx=(10, 16), pady=(0, 10), sticky="w")
+
         self._desc_var = tk.StringVar()
         ctk.CTkEntry(frame, textvariable=self._desc_var, placeholder_text="(optional)").grid(
-            row=1, column=1, padx=(0, 10), pady=4, sticky="ew"
+            row=1, column=1, padx=(0, 10), pady=(0, 10), sticky="ew"
         )
 
         # Persist description/project changes to the running entry in real time
         self._proj_var.trace_add("write", self._on_top_field_change)
         self._desc_var.trace_add("write", self._on_top_field_change)
 
-        # Row 2: Button + clock
+        # Row 2: Button + clock (left-aligned)
         btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
-        btn_frame.grid(row=2, column=0, columnspan=2, pady=(6, 10), padx=10, sticky="w")
+        btn_frame.grid(row=2, column=0, columnspan=2, pady=(4, 10), padx=10, sticky="w")
 
         self._timer_btn = ctk.CTkButton(
             btn_frame, text="▶  Start", width=140, height=40,
@@ -301,6 +303,7 @@ class App(ctk.CTk):
         if self._tick_job:
             self.after_cancel(self._tick_job)
             self._tick_job = None
+        self._desc_var.set("")
         self._set_button_idle()
         self._refresh_log_list()
 

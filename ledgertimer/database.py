@@ -6,7 +6,7 @@ Auto-creates the database and tables on first run.
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent / "ledger.db"
+DB_PATH = Path(__file__).parent / "ledger.db"
 
 
 def _connect() -> sqlite3.Connection:

@@ -22,12 +22,14 @@ A Python desktop time-tracking app for freelancers and contractors. Log billable
 
 ```
 LedgerTimer/
-├── main.py          # Entry point — creates App, launches mainloop
-├── gui.py           # All UI logic (CTk windows, panels, modals)
-├── database.py      # All SQLite read/write operations
-├── export.py        # CSV export logic
 ├── requirements.txt # Python dependencies
-└── ledger.db        # Auto-created on first run (gitignored)
+└── ledgertimer/
+    ├── __init__.py
+    ├── __main__.py  # Entry point — creates App, launches mainloop
+    ├── gui.py       # All UI logic (CTk windows, panels, modals)
+    ├── database.py  # All SQLite read/write operations
+    ├── export.py    # CSV export logic
+    └── ledger.db    # Auto-created on first run (gitignored)
 ```
 
 ---
