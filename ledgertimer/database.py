@@ -4,9 +4,17 @@ Auto-creates the database and tables on first run.
 """
 
 import sqlite3
+import sys
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "ledger.db"
+# Resolve a stable data directory:
+#   - When frozen by PyInstaller (onefile or onedir), use the folder
+#     containing the .exe so the database persists next to it.
+#   - During normal development, use the ledgertimer/ package folder.
+if getattr(sys, "frozen", False):
+    DB_PATH = Path(sys.executable).parent / "ledger.db"
+else:
+    DB_PATH = Path(__file__).parent / "ledger.db"
 
 
 def _connect() -> sqlite3.Connection:

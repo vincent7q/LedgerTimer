@@ -63,3 +63,30 @@ A lightweight, open-source, privacy-first desktop time tracker built with **Pyth
    ```bash
    python -m ledgertimer
    ```
+
+---
+
+## 📦 Building a Windows Executable
+
+1. Install PyInstaller:
+   ```bash
+   pip install pyinstaller
+   ```
+
+2. Build the `.exe`:
+   ```bash
+   pyinstaller --onefile --windowed --name LedgerTimer --collect-data customtkinter run.py
+   ```
+
+   | Flag | Purpose |
+   |---|---|
+   | `--onefile` | Packages everything into a single `.exe` |
+   | `--windowed` | Suppresses the console window on launch |
+   | `--name LedgerTimer` | Sets the output filename |
+   | `--collect-data customtkinter` | Bundles CustomTkinter themes and assets |
+
+3. The finished executable is at:
+   ```
+   dist/LedgerTimer.exe
+   ```
+   `ledger.db` will be created automatically in the same folder as the `.exe` on first run.
