@@ -44,8 +44,9 @@ def _elapsed_str(start_iso: str) -> str:
 
 def _duration_label(start_iso: str, end_iso: str) -> str:
     delta = datetime.strptime(end_iso, DT_FMT) - datetime.strptime(start_iso, DT_FMT)
-    hours = delta.total_seconds() / 3600
-    return f"{hours:.2f}h"
+    total_minutes = int(delta.total_seconds() / 60)
+    h, m = divmod(total_minutes, 60)
+    return f"{h}h {m:02d}m"
 
 
 def _first_of_month() -> str:
@@ -189,45 +190,63 @@ class App(ctk.CTk):
         self._build_bottom_panel()
 
     def _build_top_panel(self):
+        WIDGET_H = 32
+        PAD = 8
+
         frame = ctk.CTkFrame(self)
-        frame.grid(row=0, column=0, padx=12, pady=(12, 4), sticky="ew")
-        frame.grid_columnconfigure(0, weight=0)
-        frame.grid_columnconfigure(1, weight=1)
+        frame.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
+        frame.grid_columnconfigure(0, weight=20)  # Project  ~20%
+        frame.grid_columnconfigure(1, weight=65)  # Description ~65%
+        frame.grid_columnconfigure(2, weight=15)  # Start button ~15%
 
         # Row 0: Labels
-        ctk.CTkLabel(frame, text="Project:").grid(row=0, column=0, padx=(10, 16), pady=(10, 2), sticky="w")
-        ctk.CTkLabel(frame, text="Description:").grid(row=0, column=1, padx=(0, 0), pady=(10, 2), sticky="w")
+        ctk.CTkLabel(frame, text="Project:", anchor="w").grid(
+            row=0, column=0, padx=(PAD, PAD), pady=(PAD, 2), sticky="w"
+        )
+        ctk.CTkLabel(frame, text="Description:", anchor="w").grid(
+            row=0, column=1, padx=(0, PAD), pady=(PAD, 2), sticky="w"
+        )
 
-        # Row 1: Inputs
+        # Row 1: Controls — uniform height, fill each column
         self._proj_var = tk.StringVar()
-        self._proj_combo = ctk.CTkComboBox(frame, variable=self._proj_var, values=[], width=154)
-        self._proj_combo.grid(row=1, column=0, padx=(10, 16), pady=(0, 10), sticky="w")
+        self._proj_combo = ctk.CTkComboBox(
+            frame, variable=self._proj_var, values=[], height=WIDGET_H
+        )
+        self._proj_combo.grid(row=1, column=0, padx=(PAD, PAD), pady=(0, PAD), sticky="ew")
 
         self._desc_var = tk.StringVar()
-        ctk.CTkEntry(frame, textvariable=self._desc_var, placeholder_text="(optional)").grid(
-            row=1, column=1, padx=(0, 10), pady=(0, 10), sticky="ew"
-        )
+        ctk.CTkEntry(
+            frame, textvariable=self._desc_var,
+            placeholder_text="(optional)", height=WIDGET_H
+        ).grid(row=1, column=1, padx=(0, PAD), pady=(0, PAD), sticky="ew")
 
         # Persist description/project changes to the running entry in real time
         self._proj_var.trace_add("write", self._on_top_field_change)
         self._desc_var.trace_add("write", self._on_top_field_change)
 
-        # Row 2: Button + clock (left-aligned)
-        btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
-        btn_frame.grid(row=2, column=0, columnspan=2, pady=(4, 10), padx=10, sticky="w")
-
         self._timer_btn = ctk.CTkButton(
-            btn_frame, text="▶  Start", width=140, height=40,
+            frame, text="▶  Start", height=WIDGET_H,
             fg_color="#2e7d32", hover_color="#1b5e20",
-            font=ctk.CTkFont(size=15, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             command=self._toggle_timer,
         )
-        self._timer_btn.pack(side="left")
+        self._timer_btn.grid(row=1, column=2, padx=(0, PAD), pady=(0, PAD), sticky="ew")
 
+        # Clock and cancel — placed now so grid geometry is stored, then hidden
         self._clock_label = ctk.CTkLabel(
-            btn_frame, text="", font=ctk.CTkFont(size=18, weight="bold"), width=120
+            frame, text="", font=ctk.CTkFont(size=14, weight="bold")
         )
-        self._clock_label.pack(side="left", padx=20)
+        self._clock_label.grid(row=2, column=2, padx=(0, PAD), pady=(0, 2), sticky="ew")
+        self._clock_label.grid_remove()
+
+        self._cancel_btn = ctk.CTkButton(
+            frame, text="✕  Discard", height=WIDGET_H,
+            fg_color="#757575", hover_color="#616161",
+            font=ctk.CTkFont(size=12),
+            command=self._cancel_timer,
+        )
+        self._cancel_btn.grid(row=3, column=2, padx=(0, PAD), pady=(0, PAD), sticky="ew")
+        self._cancel_btn.grid_remove()
 
     def _build_middle_panel(self):
         frame = ctk.CTkFrame(self)
@@ -240,15 +259,16 @@ class App(ctk.CTk):
         col_minsizes = [100, 62, 62, 82, 140, 100, 58, 58]
 
         # Header row — padx right offset (~20 px) compensates for the scrollbar width
-        header_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        header_frame = ctk.CTkFrame(frame, fg_color=("gray80", "gray25"))
         header_frame.grid(row=0, column=0, sticky="ew", padx=(4, 22), pady=(6, 0))
         for i, (h, w, ms) in enumerate(zip(COL_HEADERS, COL_WEIGHTS, col_minsizes)):
             header_frame.grid_columnconfigure(i, weight=w, minsize=ms)
+            anchor = "center" if i < 4 else "w"
             ctk.CTkLabel(
                 header_frame, text=h,
-                font=ctk.CTkFont(weight="bold"),
-                anchor="w",
-            ).grid(row=0, column=i, sticky="ew", padx=4)
+                font=ctk.CTkFont(size=12, weight="bold"),
+                anchor=anchor,
+            ).grid(row=0, column=i, sticky="ew", padx=4, pady=3)
 
         # Scrollable list
         self._scroll_frame = ctk.CTkScrollableFrame(frame)
@@ -269,6 +289,13 @@ class App(ctk.CTk):
         ctk.CTkEntry(frame, textvariable=self._to_var, width=110).pack(side="left", padx=(0, 16))
 
         ctk.CTkButton(frame, text="Export to CSV", command=self._export_csv).pack(side="left", pady=10)
+
+        self._total_label = ctk.CTkLabel(
+            frame, text="Total: —",
+            text_color="gray",
+            font=ctk.CTkFont(size=11),
+        )
+        self._total_label.pack(side="left", padx=(16, 0), pady=10)
 
         ctk.CTkLabel(
             frame, text=f"v{__version__}",
@@ -311,12 +338,35 @@ class App(ctk.CTk):
         self._timer_btn.configure(
             text="■  Stop", fg_color="#c62828", hover_color="#b71c1c"
         )
+        self._clock_label.grid()
+        self._cancel_btn.grid()
 
     def _set_button_idle(self):
         self._timer_btn.configure(
             text="▶  Start", fg_color="#2e7d32", hover_color="#1b5e20"
         )
         self._clock_label.configure(text="")
+        self._clock_label.grid_remove()
+        self._cancel_btn.grid_remove()
+
+    def _cancel_timer(self):
+        """Discard the running timer without saving."""
+        confirmed = messagebox.askyesno(
+            "Discard Timer",
+            "Delete this timer entry? The time will not be saved.",
+            parent=self,
+        )
+        if not confirmed:
+            return
+        db.delete_log(self._running_id)
+        self._running_id = None
+        self._running_start = None
+        if self._tick_job:
+            self.after_cancel(self._tick_job)
+            self._tick_job = None
+        self._desc_var.set("")
+        self._set_button_idle()
+        self._refresh_log_list()
 
     def _tick(self):
         if self._running_start:
@@ -354,6 +404,16 @@ class App(ctk.CTk):
         self._proj_combo.configure(values=projects)
 
         rows = db.get_all_logs()
+
+        # Compute total logged time for completed entries
+        total_minutes = 0
+        for row in rows:
+            if row["end_time"]:
+                delta = datetime.strptime(row["end_time"], DT_FMT) - datetime.strptime(row["start_time"], DT_FMT)
+                total_minutes += int(delta.total_seconds() / 60)
+        th, tm = divmod(total_minutes, 60)
+        self._total_label.configure(text=f"Total: {th}h {tm:02d}m")
+
         for r_idx, row in enumerate(rows):
             # Theme-aware alternating row colours: (light-mode, dark-mode)
             bg = ("#e8e8e8", "#2b2b2b") if r_idx % 2 == 0 else ("#f5f5f5", "#333333")
@@ -381,28 +441,47 @@ class App(ctk.CTk):
             row["project"] or "",
         ]
 
-        for c_idx, (val, w) in enumerate(zip(values, COL_WEIGHTS[:6])):
+        # cols 0-3: centered (date/time); cols 4-5: left-aligned (text)
+        anchors = ["center", "center", "center", "center", "w", "w"]
+        HOVER_BG = ("#cce3ff", "#1a3a5c")
+
+        row_labels = []
+        for c_idx, (val, anchor) in enumerate(zip(values, anchors)):
             lbl = ctk.CTkLabel(
-                self._scroll_frame, text=val, anchor="w",
+                self._scroll_frame, text=val, anchor=anchor,
                 fg_color=bg, corner_radius=0,
                 text_color=("black", "white"),
             )
-            lbl.grid(row=r_idx, column=c_idx, sticky="ew", padx=2, pady=1, ipady=4)
+            lbl.grid(row=r_idx, column=c_idx, sticky="ew", padx=2, pady=1, ipady=3)
+            row_labels.append(lbl)
+
+        def _on_enter(event, labels=row_labels):
+            for lbl in labels:
+                lbl.configure(fg_color=HOVER_BG)
+
+        def _on_leave(event, labels=row_labels, orig=bg):
+            for lbl in labels:
+                lbl.configure(fg_color=orig)
+
+        for lbl in row_labels:
+            lbl.bind("<Enter>", _on_enter)
+            lbl.bind("<Leave>", _on_leave)
+            lbl.bind("<Double-Button-1>", lambda e, r=row: self._open_edit(r))
 
         # Edit button
         edit_btn = ctk.CTkButton(
-            self._scroll_frame, text="Edit", width=50, height=26,
+            self._scroll_frame, text="Edit", width=50, height=24,
             command=lambda r=row: self._open_edit(r),
         )
-        edit_btn.grid(row=r_idx, column=6, padx=2, pady=1)
+        edit_btn.grid(row=r_idx, column=6, padx=2, pady=0)
 
         # Delete button
         del_btn = ctk.CTkButton(
-            self._scroll_frame, text="Del", width=50, height=26,
+            self._scroll_frame, text="Del", width=50, height=24,
             fg_color="#c62828", hover_color="#b71c1c",
             command=lambda r=row: self._delete_entry(r),
         )
-        del_btn.grid(row=r_idx, column=7, padx=2, pady=1)
+        del_btn.grid(row=r_idx, column=7, padx=2, pady=0)
 
     def _open_edit(self, row: dict):
         EditModal(self, row, on_save_callback=self._refresh_log_list)
