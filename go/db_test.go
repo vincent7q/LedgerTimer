@@ -1,12 +1,13 @@
 package main
 
 import (
+	"path/filepath"
 	"testing"
 )
 
 func setupTestDB(t *testing.T) {
 	t.Helper()
-	path := t.TempDir() + "/test.db"
+	path := filepath.Join(t.TempDir(), "test.db")
 	if err := initDBWithPath(path); err != nil {
 		t.Fatal("initDBWithPath:", err)
 	}
@@ -31,7 +32,9 @@ func TestStartTimerReturnsPositiveID(t *testing.T) {
 
 func TestGetRunningEntryAfterStart(t *testing.T) {
 	setupTestDB(t)
-	StartTimer("2026-05-26T09:00:00", "Task", "")
+	if _, err := StartTimer("2026-05-26T09:00:00", "Task", ""); err != nil {
+		t.Fatal("StartTimer:", err)
+	}
 	entry, err := GetRunningEntry()
 	if err != nil {
 		t.Fatal(err)
@@ -46,8 +49,13 @@ func TestGetRunningEntryAfterStart(t *testing.T) {
 
 func TestStopTimerClearsRunning(t *testing.T) {
 	setupTestDB(t)
-	id, _ := StartTimer("2026-05-26T09:00:00", "Task", "")
-	StopTimer(id, "2026-05-26T10:30:00")
+	id, err := StartTimer("2026-05-26T09:00:00", "Task", "")
+	if err != nil {
+		t.Fatal("StartTimer:", err)
+	}
+	if err := StopTimer(id, "2026-05-26T10:30:00"); err != nil {
+		t.Fatal("StopTimer:", err)
+	}
 	entry, err := GetRunningEntry()
 	if err != nil {
 		t.Fatal(err)
@@ -59,10 +67,20 @@ func TestStopTimerClearsRunning(t *testing.T) {
 
 func TestDeleteLogRemovesEntry(t *testing.T) {
 	setupTestDB(t)
-	id, _ := StartTimer("2026-05-26T09:00:00", "To delete", "")
-	StopTimer(id, "2026-05-26T10:00:00")
-	DeleteLog(id)
-	logs, _ := GetAllLogs()
+	id, err := StartTimer("2026-05-26T09:00:00", "To delete", "")
+	if err != nil {
+		t.Fatal("StartTimer:", err)
+	}
+	if err := StopTimer(id, "2026-05-26T10:00:00"); err != nil {
+		t.Fatal("StopTimer:", err)
+	}
+	if err := DeleteLog(id); err != nil {
+		t.Fatal("DeleteLog:", err)
+	}
+	logs, err := GetAllLogs()
+	if err != nil {
+		t.Fatal("GetAllLogs:", err)
+	}
 	for _, e := range logs {
 		if e.ID == id {
 			t.Error("deleted entry still present in GetAllLogs")
@@ -72,9 +90,16 @@ func TestDeleteLogRemovesEntry(t *testing.T) {
 
 func TestGetLogsForExportExcludesRunning(t *testing.T) {
 	setupTestDB(t)
-	id1, _ := StartTimer("2026-05-26T09:00:00", "Done", "")
-	StopTimer(id1, "2026-05-26T10:00:00")
-	StartTimer("2026-05-26T11:00:00", "Still running", "")
+	id1, err := StartTimer("2026-05-26T09:00:00", "Done", "")
+	if err != nil {
+		t.Fatal("StartTimer:", err)
+	}
+	if err := StopTimer(id1, "2026-05-26T10:00:00"); err != nil {
+		t.Fatal("StopTimer:", err)
+	}
+	if _, err := StartTimer("2026-05-26T11:00:00", "Still running", ""); err != nil {
+		t.Fatal("StartTimer:", err)
+	}
 	rows, err := GetLogsForExport("2026-05-26", "2026-05-26")
 	if err != nil {
 		t.Fatal(err)
@@ -89,11 +114,24 @@ func TestGetLogsForExportExcludesRunning(t *testing.T) {
 
 func TestGetLogsForExportDateFilter(t *testing.T) {
 	setupTestDB(t)
-	id1, _ := StartTimer("2026-05-10T09:00:00", "May 10", "")
-	StopTimer(id1, "2026-05-10T10:00:00")
-	id2, _ := StartTimer("2026-06-01T09:00:00", "June 1", "")
-	StopTimer(id2, "2026-06-01T10:00:00")
-	rows, _ := GetLogsForExport("2026-05-01", "2026-05-31")
+	id1, err := StartTimer("2026-05-10T09:00:00", "May 10", "")
+	if err != nil {
+		t.Fatal("StartTimer:", err)
+	}
+	if err := StopTimer(id1, "2026-05-10T10:00:00"); err != nil {
+		t.Fatal("StopTimer:", err)
+	}
+	id2, err := StartTimer("2026-06-01T09:00:00", "June 1", "")
+	if err != nil {
+		t.Fatal("StartTimer:", err)
+	}
+	if err := StopTimer(id2, "2026-06-01T10:00:00"); err != nil {
+		t.Fatal("StopTimer:", err)
+	}
+	rows, err := GetLogsForExport("2026-05-01", "2026-05-31")
+	if err != nil {
+		t.Fatal("GetLogsForExport:", err)
+	}
 	if len(rows) != 1 || rows[0].ID != id1 {
 		t.Errorf("date filter: got %d rows (want 1 with id %d)", len(rows), id1)
 	}
@@ -101,10 +139,18 @@ func TestGetLogsForExportDateFilter(t *testing.T) {
 
 func TestUpdateLog(t *testing.T) {
 	setupTestDB(t)
-	id, _ := StartTimer("2026-05-26T09:00:00", "Original", "Old")
-	StopTimer(id, "2026-05-26T10:00:00")
+	id, err := StartTimer("2026-05-26T09:00:00", "Original", "Old")
+	if err != nil {
+		t.Fatal("StartTimer:", err)
+	}
+	if err := StopTimer(id, "2026-05-26T10:00:00"); err != nil {
+		t.Fatal("StopTimer:", err)
+	}
 	UpdateLog(id, "2026-05-26T08:00:00", "2026-05-26T09:30:00", "Updated", "New")
-	logs, _ := GetAllLogs()
+	logs, err := GetAllLogs()
+	if err != nil {
+		t.Fatal("GetAllLogs:", err)
+	}
 	var updated *LogEntry
 	for i := range logs {
 		if logs[i].ID == id {
@@ -124,11 +170,23 @@ func TestUpdateLog(t *testing.T) {
 
 func TestGetDistinctProjects(t *testing.T) {
 	setupTestDB(t)
-	id1, _ := StartTimer("2026-05-26T09:00:00", "", "Alpha")
-	StopTimer(id1, "2026-05-26T10:00:00")
-	id2, _ := StartTimer("2026-05-26T11:00:00", "", "Beta")
-	StopTimer(id2, "2026-05-26T12:00:00")
-	StartTimer("2026-05-26T13:00:00", "", "Alpha") // duplicate, still running
+	id1, err := StartTimer("2026-05-26T09:00:00", "", "Alpha")
+	if err != nil {
+		t.Fatal("StartTimer:", err)
+	}
+	if err := StopTimer(id1, "2026-05-26T10:00:00"); err != nil {
+		t.Fatal("StopTimer:", err)
+	}
+	id2, err := StartTimer("2026-05-26T11:00:00", "", "Beta")
+	if err != nil {
+		t.Fatal("StartTimer:", err)
+	}
+	if err := StopTimer(id2, "2026-05-26T12:00:00"); err != nil {
+		t.Fatal("StopTimer:", err)
+	}
+	if _, err := StartTimer("2026-05-26T13:00:00", "", "Alpha"); err != nil {
+		t.Fatal("StartTimer:", err)
+	}
 	projects, err := GetDistinctProjects()
 	if err != nil {
 		t.Fatal(err)

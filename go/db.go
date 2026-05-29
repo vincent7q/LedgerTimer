@@ -104,6 +104,9 @@ func GetAllLogs() ([]LogEntry, error) {
 		}
 		entries = append(entries, e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return entries, nil
 }
 
@@ -127,6 +130,9 @@ func GetLogsForExport(from, to string) ([]LogEntry, error) {
 			return nil, err
 		}
 		entries = append(entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return entries, nil
 }
@@ -170,6 +176,9 @@ func GetDistinctProjects() ([]string, error) {
 			return nil, err
 		}
 		projects = append(projects, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return projects, nil
 }

@@ -1,0 +1,6 @@
+# Local Go build/test temp dir (kept out of %TEMP% to avoid AV quarantine)
+.gobuild/
+
+# Built artifacts
+*.exe
+ledger.db
