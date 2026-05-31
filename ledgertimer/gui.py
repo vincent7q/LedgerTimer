@@ -2,9 +2,9 @@
 gui.py — All UI logic for LedgerTimer using CustomTkinter.
 
 Layout:
-  Top panel    — Project selector, Description input, Start/Stop button + elapsed clock
-  Middle panel — Scrollable log list with Edit / Delete per row
-  Bottom panel — Date range pickers + Export to CSV button
+  Top panel   — Project selector, Description input, Start/Stop button + elapsed clock
+  History tab — Scrollable log list with Edit / Delete per row
+  Export tab  — Date range pickers + Export to CSV button
 """
 
 import os
@@ -162,14 +162,117 @@ class EditModal(ctk.CTkToplevel):
         self.destroy()
 
 
+# ── History Window ─────────────────────────────────────────────────────────
+
+class HistoryWindow(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("History")
+        self.geometry("900x520")
+        self.minsize(700, 400)
+        self._build()
+
+    def _build(self):
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        col_minsizes = [100, 62, 62, 82, 140, 100, 58, 58]
+
+        header_frame = ctk.CTkFrame(self, fg_color=("gray80", "gray25"))
+        header_frame.grid(row=0, column=0, sticky="ew", padx=(4, 22), pady=(6, 0))
+        for i, (h, w, ms) in enumerate(zip(COL_HEADERS, COL_WEIGHTS, col_minsizes)):
+            header_frame.grid_columnconfigure(i, weight=w, minsize=ms)
+            anchor = "center" if i < 4 else "w"
+            ctk.CTkLabel(
+                header_frame, text=h,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                anchor=anchor,
+            ).grid(row=0, column=i, sticky="ew", padx=4, pady=3)
+
+        self.scroll_frame = ctk.CTkScrollableFrame(self)
+        self.scroll_frame.grid(row=1, column=0, sticky="nsew", padx=4, pady=(2, 4))
+        for i, (w, ms) in enumerate(zip(COL_WEIGHTS, col_minsizes)):
+            self.scroll_frame.grid_columnconfigure(i, weight=w, minsize=ms)
+
+        self.total_label = ctk.CTkLabel(
+            self, text="Total: —",
+            text_color="gray",
+            font=ctk.CTkFont(size=11),
+        )
+        self.total_label.grid(row=2, column=0, sticky="w", padx=8, pady=(2, 6))
+
+
+# ── Export Window ────────────────────────────────────────────────────────────
+
+class ExportWindow(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Export")
+        self.resizable(False, False)
+        self._build()
+
+    def _build(self):
+        pad = {"padx": 14, "pady": 10}
+
+        ctk.CTkLabel(self, text="From:", anchor="w", width=70).grid(
+            row=0, column=0, **pad, sticky="w"
+        )
+        self._from_var = tk.StringVar(value=_first_of_month())
+        ctk.CTkEntry(self, textvariable=self._from_var, width=130).grid(
+            row=0, column=1, **pad, sticky="w"
+        )
+
+        ctk.CTkLabel(self, text="To:", anchor="w", width=70).grid(
+            row=1, column=0, **pad, sticky="w"
+        )
+        self._to_var = tk.StringVar(value=_last_of_month())
+        ctk.CTkEntry(self, textvariable=self._to_var, width=130).grid(
+            row=1, column=1, **pad, sticky="w"
+        )
+
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.grid(row=2, column=0, columnspan=2, padx=14, pady=(4, 16), sticky="e")
+        ctk.CTkButton(btn_frame, text="Export to CSV", command=self._do_export).pack()
+
+    def _do_export(self):
+        from_date = self._from_var.get().strip()
+        to_date = self._to_var.get().strip()
+
+        try:
+            datetime.strptime(from_date, DATE_FMT)
+            datetime.strptime(to_date, DATE_FMT)
+        except ValueError:
+            messagebox.showerror("Invalid Date", "Please enter dates in YYYY-MM-DD format.", parent=self)
+            return
+
+        if from_date > to_date:
+            messagebox.showerror("Invalid Range", "'From' date must be on or before 'To' date.", parent=self)
+            return
+
+        default_name = f"LedgerTimer_{from_date[:7].replace('-', '')}.csv"
+        filepath = filedialog.asksaveasfilename(
+            parent=self,
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile=default_name,
+            title="Export to CSV",
+        )
+        if not filepath:
+            return
+
+        rows = db.get_logs_for_export(from_date, to_date)
+        count = exp.export_to_csv(rows, filepath)
+        messagebox.showinfo("Export Complete", f"Exported {count} entries to:\n{filepath}", parent=self)
+
+
 # ── Main Application Window ──────────────────────────────────────────────────
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("LedgerTimer")
-        self.geometry("900x640")
-        self.minsize(800, 500)
+        self.geometry("460x210")
+        self.minsize(400, 180)
         _base = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
         _ico = os.path.join(_base, "ledgertimer", "app_icon.ico")
         if not os.path.exists(_ico):
@@ -182,6 +285,8 @@ class App(ctk.CTk):
         self._running_id: int | None = None
         self._running_start: str | None = None
         self._tick_job = None
+        self._history_win = None
+        self._export_win = None
 
         self._build_ui()
         self._restore_running_state()
@@ -190,128 +295,73 @@ class App(ctk.CTk):
     # ── UI Construction ──────────────────────────────────────────────────────
 
     def _build_ui(self):
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_columnconfigure(0, weight=1)
+        WIDGET_H = 36
+        ENTRY_W = 260
 
-        self._build_top_panel()
-        self._build_middle_panel()
-        self._build_bottom_panel()
+        # ── Menu bar (History / Export at the top) ──
+        menubar = tk.Menu(self)
+        menubar.add_command(label="History", command=self._open_history)
+        menubar.add_command(label="Export",  command=self._open_export)
+        self.configure(menu=menubar)
 
-    def _build_top_panel(self):
-        WIDGET_H = 32
-        PAD = 8
+        self.grid_columnconfigure(1, weight=1)
 
-        frame = ctk.CTkFrame(self)
-        frame.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
-        frame.grid_columnconfigure(0, weight=20)  # Project  ~20%
-        frame.grid_columnconfigure(1, weight=65)  # Description ~65%
-        frame.grid_columnconfigure(2, weight=15)  # Start button ~15%
-
-        # Row 0: Labels
-        ctk.CTkLabel(frame, text="Project:", anchor="w").grid(
-            row=0, column=0, padx=(PAD, PAD), pady=(PAD, 2), sticky="w"
+        # Project row
+        ctk.CTkLabel(self, text="Project:", width=100, anchor="w").grid(
+            row=0, column=0, padx=(20, 8), pady=(20, 8), sticky="w"
         )
-        ctk.CTkLabel(frame, text="Description:", anchor="w").grid(
-            row=0, column=1, padx=(0, PAD), pady=(PAD, 2), sticky="w"
-        )
-
-        # Row 1: Controls — uniform height, fill each column
         self._proj_var = tk.StringVar()
         self._proj_combo = ctk.CTkComboBox(
-            frame, variable=self._proj_var, values=[], height=WIDGET_H
+            self, variable=self._proj_var, values=[], height=WIDGET_H, width=ENTRY_W
         )
-        self._proj_combo.grid(row=1, column=0, padx=(PAD, PAD), pady=(0, PAD), sticky="ew")
+        self._proj_combo.grid(row=0, column=1, padx=(0, 20), pady=(20, 8), sticky="ew")
 
+        # Description row
+        ctk.CTkLabel(self, text="Description:", width=100, anchor="w").grid(
+            row=1, column=0, padx=(20, 8), pady=(0, 8), sticky="w"
+        )
         self._desc_var = tk.StringVar()
         ctk.CTkEntry(
-            frame, textvariable=self._desc_var,
-            placeholder_text="(optional)", height=WIDGET_H
-        ).grid(row=1, column=1, padx=(0, PAD), pady=(0, PAD), sticky="ew")
+            self, textvariable=self._desc_var,
+            placeholder_text="(optional)", height=WIDGET_H, width=ENTRY_W
+        ).grid(row=1, column=1, padx=(0, 20), pady=(0, 8), sticky="ew")
 
-        # Persist description/project changes to the running entry in real time
+        # Persist changes to running entry in real time
         self._proj_var.trace_add("write", self._on_top_field_change)
         self._desc_var.trace_add("write", self._on_top_field_change)
 
+        # Start/Stop button — centered across both columns
         self._timer_btn = ctk.CTkButton(
-            frame, text="▶  Start", height=WIDGET_H,
+            self, text="▶  Start", height=WIDGET_H, width=160,
             fg_color="#2e7d32", hover_color="#1b5e20",
             font=ctk.CTkFont(size=13, weight="bold"),
             command=self._toggle_timer,
         )
-        self._timer_btn.grid(row=1, column=2, padx=(0, PAD), pady=(0, PAD), sticky="ew")
+        self._timer_btn.grid(row=2, column=0, columnspan=2, pady=(4, 8))
 
-        # Clock and cancel — placed now so grid geometry is stored, then hidden
+        # Clock — hidden until timer is running
         self._clock_label = ctk.CTkLabel(
-            frame, text="", font=ctk.CTkFont(size=14, weight="bold")
+            self, text="", font=ctk.CTkFont(size=20, weight="bold")
         )
-        self._clock_label.grid(row=2, column=2, padx=(0, PAD), pady=(0, 2), sticky="ew")
+        self._clock_label.grid(row=3, column=0, columnspan=2, pady=(0, 4))
         self._clock_label.grid_remove()
 
+        # Discard button — hidden until timer is running
         self._cancel_btn = ctk.CTkButton(
-            frame, text="✕  Discard", height=WIDGET_H,
+            self, text="✕  Discard", height=WIDGET_H, width=160,
             fg_color="#757575", hover_color="#616161",
             font=ctk.CTkFont(size=12),
             command=self._cancel_timer,
         )
-        self._cancel_btn.grid(row=3, column=2, padx=(0, PAD), pady=(0, PAD), sticky="ew")
+        self._cancel_btn.grid(row=4, column=0, columnspan=2, pady=(0, 4))
         self._cancel_btn.grid_remove()
 
-    def _build_middle_panel(self):
-        frame = ctk.CTkFrame(self)
-        frame.grid(row=1, column=0, padx=12, pady=4, sticky="nsew")
-        frame.grid_rowconfigure(1, weight=1)
-        frame.grid_columnconfigure(0, weight=1)
-
-        # Column minimum widths (px) — same values applied to both header and scroll frame
-        # so columns stay aligned despite the scrollbar offset in CTkScrollableFrame.
-        col_minsizes = [100, 62, 62, 82, 140, 100, 58, 58]
-
-        # Header row — padx right offset (~20 px) compensates for the scrollbar width
-        header_frame = ctk.CTkFrame(frame, fg_color=("gray80", "gray25"))
-        header_frame.grid(row=0, column=0, sticky="ew", padx=(4, 22), pady=(6, 0))
-        for i, (h, w, ms) in enumerate(zip(COL_HEADERS, COL_WEIGHTS, col_minsizes)):
-            header_frame.grid_columnconfigure(i, weight=w, minsize=ms)
-            anchor = "center" if i < 4 else "w"
-            ctk.CTkLabel(
-                header_frame, text=h,
-                font=ctk.CTkFont(size=12, weight="bold"),
-                anchor=anchor,
-            ).grid(row=0, column=i, sticky="ew", padx=4, pady=3)
-
-        # Scrollable list
-        self._scroll_frame = ctk.CTkScrollableFrame(frame)
-        self._scroll_frame.grid(row=1, column=0, sticky="nsew", padx=4, pady=(2, 6))
-        for i, (w, ms) in enumerate(zip(COL_WEIGHTS, col_minsizes)):
-            self._scroll_frame.grid_columnconfigure(i, weight=w, minsize=ms)
-
-    def _build_bottom_panel(self):
-        frame = ctk.CTkFrame(self)
-        frame.grid(row=2, column=0, padx=12, pady=(4, 12), sticky="ew")
-
-        ctk.CTkLabel(frame, text="From:").pack(side="left", padx=(10, 4), pady=10)
-        self._from_var = tk.StringVar(value=_first_of_month())
-        ctk.CTkEntry(frame, textvariable=self._from_var, width=110).pack(side="left", padx=(0, 10))
-
-        ctk.CTkLabel(frame, text="To:").pack(side="left", padx=(0, 4))
-        self._to_var = tk.StringVar(value=_last_of_month())
-        ctk.CTkEntry(frame, textvariable=self._to_var, width=110).pack(side="left", padx=(0, 16))
-
-        ctk.CTkButton(frame, text="Export to CSV", command=self._export_csv).pack(side="left", pady=10)
-
-        self._total_label = ctk.CTkLabel(
-            frame, text="Total: —",
-            text_color="gray",
-            font=ctk.CTkFont(size=11),
-        )
-        self._total_label.pack(side="left", padx=(16, 0), pady=10)
-
+        # Version label — bottom right
         ctk.CTkLabel(
-            frame, text=f"v{__version__}",
+            self, text=f"v{__version__}",
             text_color="gray",
-            font=ctk.CTkFont(size=11),
-        ).pack(side="right", padx=(0, 12), pady=10)
-
-    # ── Timer Logic ──────────────────────────────────────────────────────────
+            font=ctk.CTkFont(size=10),
+        ).grid(row=5, column=1, padx=(0, 8), pady=(0, 6), sticky="se")
 
     def _toggle_timer(self):
         if self._running_id is None:
@@ -400,34 +450,58 @@ class App(ctk.CTk):
         project = self._proj_var.get().strip() or None
         db.update_log(self._running_id, self._running_start, None, desc, project)
 
+    def _open_history(self):
+        if self._history_win and self._history_win.winfo_exists():
+            self._history_win.lift()
+            self._history_win.focus_force()
+            return
+        self._history_win = HistoryWindow(self)
+        self._refresh_log_list()
+        self.after(150, lambda: (
+            self._history_win.lift(),
+            self._history_win.focus_force(),
+        ))
+
+    def _open_export(self):
+        if self._export_win and self._export_win.winfo_exists():
+            self._export_win.lift()
+            self._export_win.focus_force()
+            return
+        self._export_win = ExportWindow(self)
+        self.after(150, lambda: (
+            self._export_win.lift(),
+            self._export_win.focus_force(),
+        ))
     # ── Log List ─────────────────────────────────────────────────────────────
 
     def _refresh_log_list(self):
-        # Clear existing rows
-        for widget in self._scroll_frame.winfo_children():
-            widget.destroy()
-
-        # Refresh project dropdown
+        # Always refresh project dropdown on main window
         projects = db.get_distinct_projects()
         self._proj_combo.configure(values=projects)
 
+        # Only populate log table if History window is open
+        if not (self._history_win and self._history_win.winfo_exists()):
+            return
+
+        hw = self._history_win
+        for widget in hw.scroll_frame.winfo_children():
+            widget.destroy()
+
         rows = db.get_all_logs()
 
-        # Compute total logged time for completed entries
         total_minutes = 0
         for row in rows:
             if row["end_time"]:
                 delta = datetime.strptime(row["end_time"], DT_FMT) - datetime.strptime(row["start_time"], DT_FMT)
                 total_minutes += int(delta.total_seconds() / 60)
         th, tm = divmod(total_minutes, 60)
-        self._total_label.configure(text=f"Total: {th}h {tm:02d}m")
+        hw.total_label.configure(text=f"Total: {th}h {tm:02d}m")
 
         for r_idx, row in enumerate(rows):
-            # Theme-aware alternating row colours: (light-mode, dark-mode)
             bg = ("#e8e8e8", "#2b2b2b") if r_idx % 2 == 0 else ("#f5f5f5", "#333333")
-            self._add_log_row(r_idx, dict(row), bg)
+            self._add_log_row(hw.scroll_frame, r_idx, dict(row), bg)
 
-    def _add_log_row(self, r_idx: int, row: dict, bg: str):
+    def _add_log_row(self, scroll_frame, r_idx: int, row: dict, bg: str):
         start_dt = datetime.strptime(row["start_time"], DT_FMT)
         date_str = start_dt.strftime(DATE_FMT)
         start_str = start_dt.strftime(DISPLAY_TIME_FMT)
@@ -456,7 +530,7 @@ class App(ctk.CTk):
         row_labels = []
         for c_idx, (val, anchor) in enumerate(zip(values, anchors)):
             lbl = ctk.CTkLabel(
-                self._scroll_frame, text=val, anchor=anchor,
+                scroll_frame, text=val, anchor=anchor,
                 fg_color=bg, corner_radius=0,
                 text_color=("black", "white"),
             )
@@ -478,14 +552,14 @@ class App(ctk.CTk):
 
         # Edit button
         edit_btn = ctk.CTkButton(
-            self._scroll_frame, text="Edit", width=50, height=24,
+            scroll_frame, text="Edit", width=50, height=24,
             command=lambda r=row: self._open_edit(r),
         )
         edit_btn.grid(row=r_idx, column=6, padx=2, pady=0)
 
         # Delete button
         del_btn = ctk.CTkButton(
-            self._scroll_frame, text="Del", width=50, height=24,
+            scroll_frame, text="Del", width=50, height=24,
             fg_color="#c62828", hover_color="#b71c1c",
             command=lambda r=row: self._delete_entry(r),
         )
@@ -512,36 +586,3 @@ class App(ctk.CTk):
             self._set_button_idle()
         db.delete_log(row["id"])
         self._refresh_log_list()
-
-    # ── Export ────────────────────────────────────────────────────────────────
-
-    def _export_csv(self):
-        from_date = self._from_var.get().strip()
-        to_date = self._to_var.get().strip()
-
-        # Validate dates
-        try:
-            datetime.strptime(from_date, DATE_FMT)
-            datetime.strptime(to_date, DATE_FMT)
-        except ValueError:
-            messagebox.showerror("Invalid Date", "Please enter dates in YYYY-MM-DD format.", parent=self)
-            return
-
-        if from_date > to_date:
-            messagebox.showerror("Invalid Range", "'From' date must be on or before 'To' date.", parent=self)
-            return
-
-        default_name = f"LedgerTimer_{from_date[:7].replace('-', '')}.csv"
-        filepath = filedialog.asksaveasfilename(
-            parent=self,
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            initialfile=default_name,
-            title="Export to CSV",
-        )
-        if not filepath:
-            return  # user cancelled
-
-        rows = db.get_logs_for_export(from_date, to_date)
-        count = exp.export_to_csv(rows, filepath)
-        messagebox.showinfo("Export Complete", f"Exported {count} entries to:\n{filepath}", parent=self)
