@@ -11,9 +11,10 @@ class _Row(dict):
         return super().__getitem__(key)
 
 
-def _row(start, end, description="", project=None):
+def _row(start, end, description="", project=None, paused_duration=0):
     return _Row({"start_time": start, "end_time": end,
-                 "description": description, "project": project})
+                 "description": description, "project": project,
+                 "paused_duration": paused_duration})
 
 
 def test_export_returns_row_count(tmp_path):
@@ -68,3 +69,23 @@ def test_duration_calculation(tmp_path):
         data = list(csv.DictReader(f))
 
     assert data[0]["Duration"] == "1.50"
+
+
+def test_duration_subtracts_paused_seconds(tmp_path):
+    # 90 min elapsed, 15 min paused → 75 min = 1.25 h
+    rows = [_row("2026-05-26T08:00:00", "2026-05-26T09:30:00", paused_duration=900)]
+    out = tmp_path / "out.csv"
+    export.export_to_csv(rows, out)
+
+    with open(out, newline="", encoding="utf-8") as f:
+        data = list(csv.DictReader(f))
+
+    assert data[0]["Duration"] == "1.25"
+
+
+def test_duration_decimal_direct_with_paused():
+    # 2h elapsed, 30 min paused → 1.5 h
+    result = export._duration_decimal(
+        "2026-05-26T08:00:00", "2026-05-26T10:00:00", paused_seconds=1800
+    )
+    assert result == "1.50"

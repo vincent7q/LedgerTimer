@@ -9,12 +9,12 @@ from typing import Sequence
 import sqlite3
 
 
-def _duration_decimal(start_iso: str, end_iso: str) -> str:
-    """Return duration as decimal hours string, e.g. '1.75'."""
+def _duration_decimal(start_iso: str, end_iso: str, paused_seconds: int = 0) -> str:
+    """Return duration as decimal hours string, e.g. '1.75'. Subtracts paused time."""
     fmt = "%Y-%m-%dT%H:%M:%S"
     start = datetime.strptime(start_iso, fmt)
     end = datetime.strptime(end_iso, fmt)
-    hours = (end - start).total_seconds() / 3600
+    hours = ((end - start).total_seconds() - paused_seconds) / 3600
     return f"{hours:.2f}"
 
 
@@ -36,7 +36,7 @@ def export_to_csv(rows: Sequence[sqlite3.Row], filepath: str | Path) -> int:
                 "Date": start_dt.strftime("%Y-%m-%d"),
                 "Start Time": start_dt.strftime("%H:%M"),
                 "End Time": end_dt.strftime("%H:%M"),
-                "Duration": _duration_decimal(row["start_time"], row["end_time"]),
+                "Duration": _duration_decimal(row["start_time"], row["end_time"], int(row["paused_duration"] or 0)),
                 "Description": row["description"] or "",
                 "Project": row["project"] or "",
             })
