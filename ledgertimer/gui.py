@@ -580,11 +580,19 @@ class App(ctk.CTk):
         self._update_tray(running=True)
 
     def _stop_timer(self):
+        # Capture info for the confirmation popup before clearing state
+        saved_desc    = self._desc_var.get().strip() or "(no description)"
+        saved_project = self._proj_var.get().strip() or "(no project)"
+        saved_start   = self._running_start
+
         # Finalise any active pause so paused_duration is accurate in DB
         if self._paused_at:
             db.resume_timer(self._running_id, _now_iso())
         end_iso = _now_iso()
         db.stop_timer(self._running_id, end_iso)
+
+        duration_str = _duration_label(saved_start, end_iso, self._paused_seconds)
+
         self._running_id     = None
         self._running_start  = None
         self._paused_at      = None
@@ -596,6 +604,14 @@ class App(ctk.CTk):
         self._set_button_idle()
         self._refresh_log_list()
         self._update_tray(running=False)
+
+        messagebox.showinfo(
+            "Task Saved",
+            f"Duration:    {duration_str}\n"
+            f"Description: {saved_desc}\n"
+            f"Project:     {saved_project}",
+            parent=self,
+        )
 
     def _toggle_pause(self):
         if self._paused_at is None:
