@@ -36,6 +36,7 @@ ctk.set_default_color_theme("blue")
 DATE_FMT = "%Y-%m-%d"
 DT_FMT = "%Y-%m-%dT%H:%M:%S"
 DISPLAY_TIME_FMT = "%H:%M"
+MONTH_FMT = "%Y-%m"
 
 COL_HEADERS  = ["Date", "Start", "End", "Duration", "Description", "Project", "", ""]
 COL_WEIGHTS  = [3, 2, 2, 2, 6, 3, 1, 1]
@@ -77,6 +78,21 @@ def _last_of_month() -> str:
     else:
         last = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
     return last.strftime(DATE_FMT)
+
+
+def _month_options() -> list[str]:
+    """Previous, current and next month as 'YYYY-MM'."""
+    first = date.today().replace(day=1)
+    prev = (first - timedelta(days=1)).replace(day=1)
+    nxt = (first + timedelta(days=31)).replace(day=1)
+    return [m.strftime(MONTH_FMT) for m in (prev, first, nxt)]
+
+
+def _month_bounds(month: str) -> tuple[str, str]:
+    """Return (first day, last day) as 'YYYY-MM-DD' for a 'YYYY-MM' string."""
+    first = datetime.strptime(month, MONTH_FMT).date()
+    last = (first + timedelta(days=31)).replace(day=1) - timedelta(days=1)
+    return first.strftime(DATE_FMT), last.strftime(DATE_FMT)
 
 
 def _make_tray_image(running: bool = False) -> "Image.Image":
@@ -269,7 +285,7 @@ class HistoryWindow(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("History")
-        self.geometry("940x580")
+        self.geometry("1090x580")
         self.minsize(720, 430)
 
         # Per-column pixel widths — initialised from defaults, mutated on drag
@@ -300,31 +316,41 @@ class HistoryWindow(ctk.CTkToplevel):
         )
         self._filter_proj_combo.grid(row=0, column=1, padx=(0, 10), pady=4, sticky="w")
 
-        ctk.CTkLabel(ff, text="From:", width=40).grid(row=0, column=2, padx=(0, 2), pady=4, sticky="w")
+        ctk.CTkLabel(ff, text="Month:", width=45).grid(row=0, column=2, padx=(0, 2), pady=4, sticky="w")
+        self._filter_month_var = tk.StringVar()
+        self._filter_month_combo = ctk.CTkComboBox(
+            ff, variable=self._filter_month_var,
+            values=[""] + _month_options(),
+            width=100, height=28, state="readonly",
+            command=self._on_month_selected,
+        )
+        self._filter_month_combo.grid(row=0, column=3, padx=(0, 10), pady=4, sticky="w")
+
+        ctk.CTkLabel(ff, text="From:", width=40).grid(row=0, column=4, padx=(0, 2), pady=4, sticky="w")
         self._filter_from_var = tk.StringVar()
         ctk.CTkEntry(ff, textvariable=self._filter_from_var,
                      width=100, height=28, placeholder_text="YYYY-MM-DD"
-                     ).grid(row=0, column=3, padx=(0, 10), pady=4, sticky="w")
+                     ).grid(row=0, column=5, padx=(0, 10), pady=4, sticky="w")
 
-        ctk.CTkLabel(ff, text="To:", width=25).grid(row=0, column=4, padx=(0, 2), pady=4, sticky="w")
+        ctk.CTkLabel(ff, text="To:", width=25).grid(row=0, column=6, padx=(0, 2), pady=4, sticky="w")
         self._filter_to_var = tk.StringVar()
         ctk.CTkEntry(ff, textvariable=self._filter_to_var,
                      width=100, height=28, placeholder_text="YYYY-MM-DD"
-                     ).grid(row=0, column=5, padx=(0, 10), pady=4, sticky="w")
+                     ).grid(row=0, column=7, padx=(0, 10), pady=4, sticky="w")
 
-        ctk.CTkLabel(ff, text="Search:", width=50).grid(row=0, column=6, padx=(0, 2), pady=4, sticky="w")
+        ctk.CTkLabel(ff, text="Search:", width=50).grid(row=0, column=8, padx=(0, 2), pady=4, sticky="w")
         self._filter_kw_var = tk.StringVar()
         ctk.CTkEntry(ff, textvariable=self._filter_kw_var,
                      width=130, height=28, placeholder_text="keyword"
-                     ).grid(row=0, column=7, padx=(0, 10), pady=4, sticky="w")
+                     ).grid(row=0, column=9, padx=(0, 10), pady=4, sticky="w")
 
         ctk.CTkButton(ff, text="Filter", width=70, height=28,
                       command=self._on_filter
-                      ).grid(row=0, column=8, padx=(0, 4), pady=4)
+                      ).grid(row=0, column=10, padx=(0, 4), pady=4)
         ctk.CTkButton(ff, text="Clear", width=60, height=28,
                       fg_color="gray", hover_color="#616161",
                       command=self._on_clear_filter
-                      ).grid(row=0, column=9, padx=(0, 8), pady=4)
+                      ).grid(row=0, column=11, padx=(0, 8), pady=4)
 
         # ── row 1: Column headers ────────────────────────────────────────────
         self._header_frame = ctk.CTkFrame(self, fg_color=("gray80", "gray25"))
@@ -364,8 +390,16 @@ class HistoryWindow(ctk.CTkToplevel):
         if self._filter_callback:
             self._filter_callback()
 
+    def _on_month_selected(self, choice: str):
+        """Fill the From/To boxes from the chosen month, then refresh at once."""
+        first, last = _month_bounds(choice) if choice else ("", "")
+        self._filter_from_var.set(first)
+        self._filter_to_var.set(last)
+        self._on_filter()
+
     def _on_clear_filter(self):
         self._filter_proj_var.set("")
+        self._filter_month_var.set("")
         self._filter_from_var.set("")
         self._filter_to_var.set("")
         self._filter_kw_var.set("")
@@ -588,6 +622,9 @@ class App(ctk.CTk):
         # Finalise any active pause so paused_duration is accurate in DB
         if self._paused_at:
             db.resume_timer(self._running_id, _now_iso())
+            # Reload paused_duration from DB so the duration below is authoritative
+            row = db.get_running_entry()
+            self._paused_seconds = int(row["paused_duration"] or 0) if row else self._paused_seconds
         end_iso = _now_iso()
         db.stop_timer(self._running_id, end_iso)
 
@@ -679,7 +716,6 @@ class App(ctk.CTk):
                 self._set_button_paused()
                 self._clock_label.grid()
                 self._pause_btn.grid()
-                self._cancel_btn.grid()
             else:
                 self._paused_at = None
                 self._set_button_active()

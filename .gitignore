@@ -23,6 +23,7 @@ ledger.db
 
 # PyInstaller
 *.spec
+!LedgerTimer.spec
 dist/
 build/
 

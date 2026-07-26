@@ -1,16 +1,18 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "ledgertimer"
-version = "1.0"
+dynamic = ["version"]
 description = "A lightweight, privacy-first desktop time tracker for freelancers"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
     "customtkinter>=5.2.0",
+    "pystray>=0.19.5",
+    "Pillow>=10.0.0",
 ]
 
 [project.scripts]
@@ -19,6 +21,9 @@ ledgertimer = "ledgertimer.__main__:main"
 [project.urls]
 Homepage = "https://github.com/vincent7q/LedgerTimer"
 Issues = "https://github.com/vincent7q/LedgerTimer/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "ledgertimer.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["ledgertimer*"]
