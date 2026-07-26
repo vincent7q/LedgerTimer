@@ -4,7 +4,7 @@ gui.py — All UI logic for LedgerTimer using CustomTkinter (v2.0).
 New in v2.0:
   F1  Pause / Resume timer
   F2  Add past entry manually
-  F3  Filter bar in History (project, date range, keyword)
+  F3  Filter bar in History (project, month, date range)
   U1  System tray (minimize-to-tray, tray tooltip shows elapsed)
   U7  Resizable columns in History (drag column header)
 """
@@ -329,28 +329,22 @@ class HistoryWindow(ctk.CTkToplevel):
         ctk.CTkLabel(ff, text="From:", width=40).grid(row=0, column=4, padx=(0, 2), pady=4, sticky="w")
         self._filter_from_var = tk.StringVar()
         ctk.CTkEntry(ff, textvariable=self._filter_from_var,
-                     width=100, height=28, placeholder_text="YYYY-MM-DD"
+                     width=80, height=28, placeholder_text="YYYY-MM-DD"
                      ).grid(row=0, column=5, padx=(0, 10), pady=4, sticky="w")
 
         ctk.CTkLabel(ff, text="To:", width=25).grid(row=0, column=6, padx=(0, 2), pady=4, sticky="w")
         self._filter_to_var = tk.StringVar()
         ctk.CTkEntry(ff, textvariable=self._filter_to_var,
-                     width=100, height=28, placeholder_text="YYYY-MM-DD"
+                     width=80, height=28, placeholder_text="YYYY-MM-DD"
                      ).grid(row=0, column=7, padx=(0, 10), pady=4, sticky="w")
-
-        ctk.CTkLabel(ff, text="Search:", width=50).grid(row=0, column=8, padx=(0, 2), pady=4, sticky="w")
-        self._filter_kw_var = tk.StringVar()
-        ctk.CTkEntry(ff, textvariable=self._filter_kw_var,
-                     width=130, height=28, placeholder_text="keyword"
-                     ).grid(row=0, column=9, padx=(0, 10), pady=4, sticky="w")
 
         ctk.CTkButton(ff, text="Filter", width=70, height=28,
                       command=self._on_filter
-                      ).grid(row=0, column=10, padx=(0, 4), pady=4)
+                      ).grid(row=0, column=8, padx=(0, 4), pady=4)
         ctk.CTkButton(ff, text="Clear", width=60, height=28,
                       fg_color="gray", hover_color="#616161",
                       command=self._on_clear_filter
-                      ).grid(row=0, column=11, padx=(0, 8), pady=4)
+                      ).grid(row=0, column=9, padx=(0, 8), pady=4)
 
         # ── row 1: Column headers ────────────────────────────────────────────
         self._header_frame = ctk.CTkFrame(self, fg_color=("gray80", "gray25"))
@@ -402,7 +396,6 @@ class HistoryWindow(ctk.CTkToplevel):
         self._filter_month_var.set("")
         self._filter_from_var.set("")
         self._filter_to_var.set("")
-        self._filter_kw_var.set("")
         if self._filter_callback:
             self._filter_callback()
 
@@ -775,7 +768,6 @@ class App(ctk.CTk):
         proj_filter = hw._filter_proj_var.get().strip() or None
         from_filter = hw._filter_from_var.get().strip() or None
         to_filter   = hw._filter_to_var.get().strip() or None
-        kw_filter   = hw._filter_kw_var.get().strip() or None
 
         # Silently ignore malformed date values in the filter bar
         for val in (from_filter, to_filter):
@@ -789,7 +781,7 @@ class App(ctk.CTk):
                     else:
                         to_filter = None
 
-        rows = db.get_filtered_logs(proj_filter, from_filter, to_filter, kw_filter)
+        rows = db.get_filtered_logs(proj_filter, from_filter, to_filter)
 
         for widget in hw.scroll_frame.winfo_children():
             widget.destroy()
