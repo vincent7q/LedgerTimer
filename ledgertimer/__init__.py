@@ -1,3 +1,3 @@
 """LedgerTimer — A lightweight, privacy-first desktop time tracker for freelancers."""
 
-__version__ = "2.2"
+__version__ = "2.3"

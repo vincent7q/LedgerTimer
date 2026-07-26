@@ -285,7 +285,7 @@ class HistoryWindow(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("History")
-        self.geometry("1090x580")
+        self.geometry("800x580")
         self.minsize(720, 430)
 
         # Per-column pixel widths — initialised from defaults, mutated on drag
