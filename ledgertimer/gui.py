@@ -81,11 +81,13 @@ def _last_of_month() -> str:
 
 
 def _month_options() -> list[str]:
-    """Previous, current and next month as 'YYYY-MM'."""
-    first = date.today().replace(day=1)
-    prev = (first - timedelta(days=1)).replace(day=1)
-    nxt = (first + timedelta(days=31)).replace(day=1)
-    return [m.strftime(MONTH_FMT) for m in (prev, first, nxt)]
+    """The current month and the four before it, newest first, as 'YYYY-MM'."""
+    m = date.today().replace(day=1)
+    months = []
+    for _ in range(5):
+        months.append(m.strftime(MONTH_FMT))
+        m = (m - timedelta(days=1)).replace(day=1)
+    return months
 
 
 def _month_bounds(month: str) -> tuple[str, str]:
