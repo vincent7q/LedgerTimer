@@ -66,18 +66,13 @@ def _duration_label(start_iso: str, end_iso: str, paused_seconds: int = 0) -> st
     return f"{h}h {m:02d}m"
 
 
-def _first_of_month() -> str:
-    today = date.today()
-    return today.replace(day=1).strftime(DATE_FMT)
+def _first_of_last_month() -> str:
+    last_month_end = date.today().replace(day=1) - timedelta(days=1)
+    return last_month_end.replace(day=1).strftime(DATE_FMT)
 
 
-def _last_of_month() -> str:
-    today = date.today()
-    if today.month == 12:
-        last = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
-    else:
-        last = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
-    return last.strftime(DATE_FMT)
+def _last_of_last_month() -> str:
+    return (date.today().replace(day=1) - timedelta(days=1)).strftime(DATE_FMT)
 
 
 def _month_options() -> list[str]:
@@ -437,11 +432,11 @@ class ExportWindow(ctk.CTkToplevel):
         pad = {"padx": 14, "pady": 10}
 
         ctk.CTkLabel(self, text="From:", anchor="w", width=70).grid(row=0, column=0, **pad, sticky="w")
-        self._from_var = tk.StringVar(value=_first_of_month())
+        self._from_var = tk.StringVar(value=_first_of_last_month())
         ctk.CTkEntry(self, textvariable=self._from_var, width=130).grid(row=0, column=1, **pad, sticky="w")
 
         ctk.CTkLabel(self, text="To:", anchor="w", width=70).grid(row=1, column=0, **pad, sticky="w")
-        self._to_var = tk.StringVar(value=_last_of_month())
+        self._to_var = tk.StringVar(value=_last_of_last_month())
         ctk.CTkEntry(self, textvariable=self._to_var, width=130).grid(row=1, column=1, **pad, sticky="w")
 
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
